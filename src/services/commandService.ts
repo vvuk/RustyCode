@@ -174,7 +174,7 @@ export class CommandService {
 
     public static formatCommand(commandName: string, ...args: string[]): vscode.Disposable {
         return vscode.commands.registerCommand(commandName, () => {
-            this.runCargo(args, true, true);
+            this.runCargo(args, true);
         });
     }
 
@@ -236,7 +236,7 @@ export class CommandService {
         if (release) {
             args.push('--release');
         }
-        this.runCargo(args, true, true);
+        this.runCargo(args, true);
     }
 
     private static runExample(release: boolean): void {
@@ -248,7 +248,7 @@ export class CommandService {
         if (release) {
             args.push('--release');
         }
-        this.runCargo(args, true, true);
+        this.runCargo(args, true);
     }
 
     private static parseDiagnostics(cwd: string, output: string): void {
@@ -404,19 +404,20 @@ export class CommandService {
         return true;
     }
 
-    private static runCargo(args: string[], force = false, visible = false): void {
+    private static runCargo(args: string[], force = false): void {
         if (force && this.currentTask) {
             this.channel.setOwner(null);
             this.currentTask.kill().then(() => {
-                this.runCargo(args, force, visible);
+                this.runCargo(args, force);
             });
             return;
         } else if (this.currentTask) {
             return;
         }
 
-        // collect feature flags
         const rustConfig = vscode.workspace.getConfiguration('rust');
+
+        // collect feature flags
         let features: any = [];
         if (rustConfig['features'].length > 0) {
             features.push('--features');
@@ -436,8 +437,9 @@ export class CommandService {
 
         this.currentTask = new CargoTask(argsWithFatures, this.channel);
 
-        if (visible) {
-            this.channel.setOwner(this.currentTask);
+        this.channel.setOwner(this.currentTask);
+
+        if (rustConfig['showOutput']) {
             this.channel.show();
         }
 

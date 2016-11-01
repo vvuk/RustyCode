@@ -200,8 +200,11 @@ export default class SuggestService {
     private hoverProvider(document: vscode.TextDocument, position: vscode.Position): Thenable<vscode.Hover> {
         // Could potentially use `document.getWordRangeAtPosition`.
         let line = document.lineAt(position.line);
-        let wordStartIndex = line.text.slice(0, position.character).search(/[a-z0-9_]+$/i);
-        let wordEndIndex = line.text.slice(position.character).search(/[^a-z0-9_]/i) + position.character;
+        let wordStartIndex = line.text.slice(0, position.character + 1).search(/[a-z0-9_]+$/i);
+        let lastCharIndex = line.text.slice(position.character).search(/[^a-z0-9_]/i);
+        let wordEndIndex = lastCharIndex == -1 ? 1 + position.character : lastCharIndex + position.character;
+        let lineTail = line.text.slice(wordEndIndex).trim();
+        let isFunction = lineTail == "" ? false : lineTail[0] == '(';
 
         let word = line.text.slice(wordStartIndex, wordEndIndex);
         if (!word) {
@@ -216,21 +219,24 @@ export default class SuggestService {
                 return null;
             }
 
-            let result = lines[1];
+            let result = 
+                isFunction
+                ? lines.slice(1).find((line) => line.split('\t')[6] == "Function")
+                : lines[1];
+
             let parts = result.split('\t');
-            let match = parts[1];
+            let match = parts[2];
             let type = parts[6];
-            let definition = parts[7];
+            let definition = type == "Module" ? "module " + match : parts[7];
             let docs = JSON.parse(parts[8].replace(/\\'/g, "'")).split('\n');
 
             // We actually found a completion instead of a definition, so we won't show the returned info.
-            if (match !== word) {
-                return null;
+            if (type == "Function") {
+                if (!match.startsWith(word + "(")) { 
+                    return null;
+                }
             }
-
-            // Module definitions are just their path, so there is no need
-            // to render it.
-            if (type === 'Module') {
+            else if (match != word) {
                 return null;
             }
 

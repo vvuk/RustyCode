@@ -105,7 +105,6 @@ export default class SuggestService {
 
         this.racerPath = PathService.getRacerPath();
         this.statusBarItem.showTurnedOn();
-
         const cargoHomePath = PathService.getCargoHomePath();
         const racerSpawnOptions: cp.SpawnOptions = { stdio: 'pipe' };
         if (cargoHomePath !== '') {
@@ -202,9 +201,9 @@ export default class SuggestService {
         let line = document.lineAt(position.line);
         let wordStartIndex = line.text.slice(0, position.character + 1).search(/[a-z0-9_]+$/i);
         let lastCharIndex = line.text.slice(position.character).search(/[^a-z0-9_]/i);
-        let wordEndIndex = lastCharIndex == -1 ? 1 + position.character : lastCharIndex + position.character;
+        let wordEndIndex = lastCharIndex === -1 ? 1 + position.character : lastCharIndex + position.character;
         let lineTail = line.text.slice(wordEndIndex).trim();
-        let isFunction = lineTail == "" ? false : lineTail[0] == '(';
+        let isFunction = lineTail === '' ? false : lineTail[0] === '(';
 
         let word = line.text.slice(wordStartIndex, wordEndIndex);
         if (!word) {
@@ -219,24 +218,23 @@ export default class SuggestService {
                 return null;
             }
 
-            let result = 
+            let result =
                 isFunction
-                ? lines.slice(1).find((line) => line.split('\t')[6] == "Function")
+                ? lines.slice(1).find(x => x.split('\t')[6] === 'Function')
                 : lines[1];
 
             let parts = result.split('\t');
             let match = parts[2];
             let type = parts[6];
-            let definition = type == "Module" ? "module " + match : parts[7];
+            let definition = type === 'Module' ? 'module ' + match : parts[7];
             let docs = JSON.parse(parts[8].replace(/\\'/g, "'")).split('\n');
 
             // We actually found a completion instead of a definition, so we won't show the returned info.
-            if (type == "Function") {
-                if (!match.startsWith(word + "(")) { 
+            if (type === 'Function') {
+                if (!match.startsWith(word + '(')) {
                     return null;
                 }
-            }
-            else if (match != word) {
+            } else if (match !== word) {
                 return null;
             }
 

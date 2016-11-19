@@ -309,6 +309,8 @@ export class CommandService {
         diagnosticMap.forEach((diags, uri) => {
             this.diagnostics.set(vscode.Uri.file(uri), diags);
         });
+
+        vscode.commands.executeCommand("workbench.actions.view.problems");
     }
 
     private static parseOldHumanReadable(errors: RustError[], line: string): void {

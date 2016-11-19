@@ -4,6 +4,9 @@ import * as path from 'path';
 import kill = require('tree-kill');
 import PathService from './pathService';
 
+import elegantSpinner = require('elegant-spinner');
+const spinner = elegantSpinner();
+
 const errorRegex = /^(.*):(\d+):(\d+):\s+(\d+):(\d+)\s+(warning|error|note|help):\s+(.*)$/;
 
 interface RustError {
@@ -170,6 +173,8 @@ export class CommandService {
     private static diagnostics: vscode.DiagnosticCollection = vscode.languages.createDiagnosticCollection('rust');
     private static channel: ChannelWrapper = new ChannelWrapper(vscode.window.createOutputChannel('Cargo'));
     private static currentTask: CargoTask;
+    private static statusBarItem: vscode.StatusBarItem;
+    private static spinnerUpdate: any;
     public static errorFormat: ErrorFormat;
 
     public static formatCommand(commandName: string, ...args: string[]): vscode.Disposable {
@@ -404,6 +409,33 @@ export class CommandService {
         return true;
     }
 
+    private static showSpinner(): void {
+        if (this.statusBarItem == null) {
+            this.statusBarItem = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left);
+            this.statusBarItem.text = spinner();
+            this.statusBarItem.tooltip = 'Running Cargo Task';
+        }
+
+        this.statusBarItem.show();
+
+        if (this.spinnerUpdate == null) {
+            this.spinnerUpdate = setInterval(() => {
+                this.statusBarItem.text = spinner();
+            }, 50);
+        }
+    }
+
+    private static hideSpinner(): void {
+        if (this.spinnerUpdate != null) {
+            clearInterval(this.spinnerUpdate);
+            this.spinnerUpdate = null;
+        }
+
+        if (this.statusBarItem != null) {
+            this.statusBarItem.hide();
+        }
+    }
+
     private static runCargo(args: string[], force = false): void {
         if (force && this.currentTask) {
             this.channel.setOwner(null);
@@ -445,9 +477,12 @@ export class CommandService {
 
         PathService.cwd().then((value: string | Error) => {
             if (typeof value === 'string') {
+                this.showSpinner();
                 this.currentTask.execute(value).then(output => {
+                    this.hideSpinner();
                     this.parseDiagnostics(value, output);
                 }, output => {
+                    this.hideSpinner();
                     this.parseDiagnostics(value, output);
                 }).then(() => {
                     this.currentTask = null;

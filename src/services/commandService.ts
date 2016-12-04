@@ -261,7 +261,12 @@ export class CommandService {
         // The new Rust error format is a little more complex and is spread out over
         // multiple lines. For this case, we'll just use a global regex to get our matches
         if (this.errorFormat === ErrorFormat.NewStyle) {
-            this.parseNewHumanReadable(errors, output);
+            try {
+                this.parseNewHumanReadable(errors, output);
+            } catch (e) {
+                console.error("parseNewHumanReadable returned error: " + e);
+                return;
+            }
         } else {
             // Otherwise, parse out the errors line by line.
             for (let line of output.split('\n')) {
@@ -336,7 +341,7 @@ export class CommandService {
     private static parseNewHumanReadable(errors: RustError[], output: string): void {
         let newErrorRegex = new RegExp('(warning|error|note|help)(?:\\[(.*)\\])?\\: (.*)\\s+--> '
             + '(.*):(\\d+):(\\d+)\\n(?:((?:.+\\n)+)\\.+)?(?:[\\d\\s]+\\|.*)*\\n((?:\\s+=.*)+)?', 'g');
-        let newErrorRange = /\s+\|\s+(\^+)/g;
+        let newErrorRange = /\s+\|[ _]+(\^+)/g;
 
         while (true) {
             const match = newErrorRegex.exec(output);
@@ -367,12 +372,32 @@ export class CommandService {
                 msg += '\n' + match[8];
             }
 
+	    // TODO: some errors report multi-line start/end, e.g.:
+	    //
+	    // warning: method is never used: `next_scroll_layer_id`, #[warn(dead_code)] on by default
+	    //    --> src\wrench.rs:220:5
+	    //     |
+	    // 220 |       pub fn next_scroll_layer_id(&mut self) -> ScrollLayerId {
+	    //     |  _____^ starting here...
+	    // 221 | |         let scroll_layer_id = ServoScrollRootId(self.next_scroll_layer_id);
+	    // 222 | |         self.next_scroll_layer_id += 1;
+	    // 223 | |         ScrollLayerId::new(self.root_pipeline_id, 0, scroll_layer_id)
+	    // 224 | |     }
+	    //     | |_____^ ...ending here
+	    //
+	    // We need to handle the "ending here" bit and pull out the proper line number.
+	    //
+	    // But -- hopefully JSON errors will stabilize quickly and we can avoid this entire mess.
+
+	    let endLine = startLine;
+            let endCharacter = startCharacter + range[1].length;
+
             errors.push({
                 filename: filename,
                 startLine: startLine,
                 startCharacter: startCharacter,
                 endLine: startLine,
-                endCharacter: startCharacter + range[1].length,
+                endCharacter: endCharacter,
                 severity: match[1],
                 message: msg
             });

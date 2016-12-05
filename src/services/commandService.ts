@@ -297,6 +297,10 @@ export class CommandService {
         let diagnosticMap: Map<string, vscode.Diagnostic[]> = new Map();
         errors.forEach(error => {
             let filePath = path.join(cwd, error.filename);
+            // handle Windows full paths; path.join horks on these
+            if (error.filename.length > 3 && error.filename[1] == ":" && error.filename[2] == "\\") {
+                filePath = error.filename;
+            }
             // VSCode starts its lines and columns at 0, so subtract 1 off 
             let range = new vscode.Range(error.startLine - 1, error.startCharacter - 1, error.endLine - 1, error.endCharacter - 1);
             let severity = mapSeverityToVsCode(error.severity);

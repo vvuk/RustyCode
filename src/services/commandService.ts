@@ -319,7 +319,11 @@ export class CommandService {
             this.diagnostics.set(vscode.Uri.file(uri), diags);
         });
 
-        vscode.commands.executeCommand("workbench.actions.view.problems");
+        // we want to open the errors/warnings panel, but without focusing it
+        vscode.commands.executeCommand("workbench.action.showErrorsWarnings");
+        // this is a workaround to showErrorsWarnings stealing focus.  This puts
+        // it back to where it should be.
+        vscode.commands.executeCommand("search.action.focusActiveEditor");
     }
 
     private static parseOldHumanReadable(errors: RustError[], line: string): void {
@@ -345,7 +349,7 @@ export class CommandService {
     private static parseNewHumanReadable(errors: RustError[], output: string): void {
         let newErrorRegex = new RegExp('(warning|error|note|help)(?:\\[(.*)\\])?\\: (.*)\\s+--> '
             + '(.*):(\\d+):(\\d+)\\n(?:((?:.+\\n)+)\\.+)?(?:[\\d\\s]+\\|.*)*\\n((?:\\s+=.*)+)?', 'g');
-        let newErrorRange = /\s+\|[ _]+(\^+)/g;
+        let newErrorRange = /\s+\|[ _-]+(\^+)/g;
 
         while (true) {
             const match = newErrorRegex.exec(output);

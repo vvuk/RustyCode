@@ -264,8 +264,18 @@ export class CommandService {
             try {
                 this.parseNewHumanReadable(errors, output);
             } catch (e) {
-                console.error("parseNewHumanReadable returned error: " + e);
-                return;
+                // catch errors here instead of propagating them upwards, which
+                // kills error parsing until reload
+                console.error('parseNewHumanReadable returned error: ' + e);
+                errors.push({
+                    filename: 'NONE',
+                    startLine: 1,
+                    startCharacter: 1,
+                    endLine: 1,
+                    endCharacter: 1,
+                    severity: 'error',
+                    message: 'RustyCode failed to parse error output'
+                });
             }
         } else {
             // Otherwise, parse out the errors line by line.
@@ -297,8 +307,8 @@ export class CommandService {
         let diagnosticMap: Map<string, vscode.Diagnostic[]> = new Map();
         errors.forEach(error => {
             let filePath = path.join(cwd, error.filename);
-            // handle Windows full paths; path.join horks on these
-            if (error.filename.length > 3 && error.filename[1] == ":" && error.filename[2] == "\\") {
+            // handle Windows full paths; path.join horks on these (???)
+            if (error.filename.length > 3 && error.filename[1] === ':' && error.filename[2] === '\\') {
                 filePath = error.filename;
             }
             // VSCode starts its lines and columns at 0, so subtract 1 off 
@@ -320,10 +330,10 @@ export class CommandService {
         });
 
         // we want to open the errors/warnings panel, but without focusing it
-        vscode.commands.executeCommand("workbench.action.showErrorsWarnings");
+        vscode.commands.executeCommand('workbench.action.showErrorsWarnings');
         // this is a workaround to showErrorsWarnings stealing focus.  This puts
         // it back to where it should be.
-        vscode.commands.executeCommand("search.action.focusActiveEditor");
+        vscode.commands.executeCommand('search.action.focusActiveEditor');
     }
 
     private static parseOldHumanReadable(errors: RustError[], line: string): void {
@@ -380,31 +390,31 @@ export class CommandService {
                 msg += '\n' + match[8];
             }
 
-	    // TODO: some errors report multi-line start/end, e.g.:
-	    //
-	    // warning: method is never used: `next_scroll_layer_id`, #[warn(dead_code)] on by default
-	    //    --> src\wrench.rs:220:5
-	    //     |
-	    // 220 |       pub fn next_scroll_layer_id(&mut self) -> ScrollLayerId {
-	    //     |  _____^ starting here...
-	    // 221 | |         let scroll_layer_id = ServoScrollRootId(self.next_scroll_layer_id);
-	    // 222 | |         self.next_scroll_layer_id += 1;
-	    // 223 | |         ScrollLayerId::new(self.root_pipeline_id, 0, scroll_layer_id)
-	    // 224 | |     }
-	    //     | |_____^ ...ending here
-	    //
-	    // We need to handle the "ending here" bit and pull out the proper line number.
-	    //
-	    // But -- hopefully JSON errors will stabilize quickly and we can avoid this entire mess.
+            // TODO: some errors report multi-line start/end, e.g.:
+            //
+            // warning: method is never used: `next_scroll_layer_id`, #[warn(dead_code)] on by default
+            //    --> src\wrench.rs:220:5
+            //     |
+            // 220 |       pub fn next_scroll_layer_id(&mut self) -> ScrollLayerId {
+            //     |  _____^ starting here...
+            // 221 | |         let scroll_layer_id = ServoScrollRootId(self.next_scroll_layer_id);
+            // 222 | |         self.next_scroll_layer_id += 1;
+            // 223 | |         ScrollLayerId::new(self.root_pipeline_id, 0, scroll_layer_id)
+            // 224 | |     }
+            //     | |_____^ ...ending here
+            //
+            // We need to handle the "ending here" bit and pull out the proper line number.
+            //
+            // But -- hopefully JSON errors will stabilize quickly and we can avoid this entire mess.
 
-	    let endLine = startLine;
+            let endLine = startLine;
             let endCharacter = startCharacter + range[1].length;
 
             errors.push({
                 filename: filename,
                 startLine: startLine,
                 startCharacter: startCharacter,
-                endLine: startLine,
+                endLine: endLine,
                 endCharacter: endCharacter,
                 severity: match[1],
                 message: msg
